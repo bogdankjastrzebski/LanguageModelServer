@@ -18,6 +18,11 @@ end
 function wonszu-repl
     while true
         read input
+        if test -z "$input"
+            echo "(ctrl-d to exit)"
+            set input (cat) # (read) (sed '/^$/q') 
+            echo 
+        end
         if string match -q "exit" $input
             echo "Exiting REPL..."
             break
