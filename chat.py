@@ -42,7 +42,7 @@ MD_USER = {
     'parts': [
         'reply from now on markdown style, '
         'beginning with ```markdown and ending with ```. '
-        'remember also to put \\ before each single quote \''
+#         'remember also to put \\ before each single quote \''
     ],
 }
 

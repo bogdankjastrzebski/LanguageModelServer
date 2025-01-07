@@ -71,8 +71,8 @@ if __name__ == '__main__':
     #     message = ' '.join(args.message)
     # else:
     #     message = sys.stdin.read().strip()
-    if len(args.message) == 0:
-        message = sys.stdin.read().strip()
+    # if len(args.message) == 0:
+    #     message = sys.stdin.read().strip()
 
     name = args.name
 
@@ -98,7 +98,12 @@ if __name__ == '__main__':
             """.split()
             if args.nomarkdown:
                 command.append('--nomarkdown')
-            process = subprocess.Popen(command, env=None)
+            process = subprocess.Popen(
+                command,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                env=None,
+            )
             if process:
                 pid = process.pid
                 with open(f'{args.root}/tmp/{name}.pid', 'w') as f:
