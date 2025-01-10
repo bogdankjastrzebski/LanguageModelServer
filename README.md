@@ -22,9 +22,11 @@ function wonszu-repl
             set input "$(sed '/^$/q')"
             echo 
         end
-        if string match -q "exit" $input
+        if string match -q "exit" "$input"
             echo "Exiting REPL..."
             break
+        else if string match -q "clear" "$input"
+            clear
         else if not test -z "$input"
             wonszu "$input"
         end
