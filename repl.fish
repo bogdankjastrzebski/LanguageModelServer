@@ -1,16 +1,8 @@
 #!/usr/bin/fish
 
-function wonszu
-    # set tmpfile (mktemp)
-    # trap 'rm -f "$tmpfile"' EXIT
-    bot "$argv[1]"   \
-        --name=wonsz \
-        --conversation=default | glow -w 60 # > "$tmpfile"
-    # cat "$tmpfile" | glow -w 60
-end
 
-
-function wonszu-repl
+function chatbot-repl
+    set chatbot $argv[1]
     set mode "gemini"
     while true
         if string match -q "shell" "$mode"
@@ -50,11 +42,11 @@ function wonszu-repl
                     if test $mode = "shell"
                         set output "$(eval $input)"
                         echo -n "$output"
-                        wonszu "append
+                        $chatbot "append
                         shell> $input
                         $output"
                     else
-                        wonszu "$input"
+                        $chatbot "$input"
                     end
                 end
         end

@@ -2,6 +2,14 @@
 
 This is an unofficial implementation of Gemini for command line.
 
+## Installation
+
+Include in fish shell:
+```fish
+source $CHATBOT_PATH/repl.sh
+```
+
+
 ## Usage
 
 
@@ -14,25 +22,11 @@ function wonszu
         --conversation=default | glow -w 60
 end
 
-
 function wonszu-repl
-    while true
-        read input
-        if test -z "$input"
-            set input "$(sed '/^$/q')"
-            echo 
-        end
-        if string match -q "exit" "$input"
-            echo "Exiting REPL..."
-            break
-        else if string match -q "clear" "$input"
-            clear
-        else if not test -z "$input"
-            wonszu "$input"
-        end
-    end
+    repl-wrapper wonszu
 end
 ```
+
 
 Basic usage:
 ```bash
