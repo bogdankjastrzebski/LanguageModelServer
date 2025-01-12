@@ -42,10 +42,10 @@ MD_USER = {
     'parts': [
         'reply from now on markdown style, '
         'beginning with ```markdown and ending with ```. '
-#         'remember also to put \\ before each single quote \''
     ],
 }
 
+# 'remember also to put \\ before each single quote \''
 
 MD_MODEL = {
     'role': 'model',
@@ -57,27 +57,26 @@ MD_MODEL = {
 
 
 class MessageHandler(FileSystemEventHandler):
-    def __init__(self, input, output, conv, chat, markdown):
+    def __init__(self, input, output, context, conv, chat, markdown):
         super().__init__()
         self.input = input
         self.output = output
+        self.context = context
         self.conv = conv
         self.chat = chat
         self.markdown = markdown
         if self.markdown:
             self.remember_about_markdown()
-        log(f'input:  {args.root}/tmp/{args.name}_question.txt')
-        log(f'output: {args.root}/tmp/{args.name}_response.txt')
-        log(f'conv:   {args.root}/conv/{args.conv}.conv')
+        log(f'input:  {input}')
+        log(f'output: {output}')
+        log(f'context: {context}')
+        log(f'conv:   {conv}')
 
     def remember_about_markdown(self):
         log('Adding markdown instructions.')
         self.chat.history.append(MD_USER)
         self.chat.history.append(MD_MODEL)
         log('done.')
-        # with open(self.conv, 'a') as f:
-        #    f.write('\n' + json.dumps(MD_USER) + ',')
-        #    f.write('\n' + json.dumps(MD_MODEL) + ',')
 
     def unmarkdown(self, text):
         # log(f"text: {text}")
@@ -93,42 +92,76 @@ class MessageHandler(FileSystemEventHandler):
         text = text[:-3]
         return text
 
+    def handle_chat(self, message):
+        response = chat.send_message(message)
+        with open(self.conv, 'a') as f:
+            f.write('\n' + json.dumps({
+                'role': 'user',
+                'parts': [message],
+            }) + ',')
+            f.write('\n' + json.dumps({
+                'role': 'model',
+                'parts': [response.text.strip()],
+            }) + ',')
+        text = response.text.strip()
+        # if self.markdown:
+        text = self.unmarkdown(text)
+        with open(self.output, 'w') as f:
+            f.write(text)
+
+    def handle_context(self, message):
+        user_message = {
+            'role': 'user',
+            'parts': [message],
+        }
+        model_message = {
+            'role': 'model',
+            'parts': ['Noted terminal output, awaiting instructions.'],
+        }
+        self.chat.history.append(user_message)
+        self.chat.history.append(model_message)
+        with open(self.conv, 'a') as f:
+            f.write('\n' + json.dumps(user_message) + ',')
+            f.write('\n' + json.dumps(model_message) + ',')
+        with open(self.output, 'w') as f:
+            f.write('appended')
+
     def on_modified(self, event):
         # log(f'Type event: {type(event)}')
-        if (isinstance(event, FileModifiedEvent)
-                and event.src_path == self.input):
-            log("Sending message activated.")
-            try:
-                with open(event.src_path, 'r') as f:
-                    message = f.read().strip()
+        if not isinstance(event, FileModifiedEvent):
+            return
+        log('A')
+        if event.src_path not in [self.input, self.context]:
+            return
+        log('B')
 
-                if message == '__test_message__':
-                    log("TEST Sending message.")
-                    response = chat.send_message('Do you copy?')
-                    log(f'response: \n {response.text}')
-                    log(f'unmarkdown: {self.unmarkdown(response.text.strip())}')
-                    log("TEST done.")
-                    return
+        log(f"Sending message activated: {event.src_path}")
+        try:
+            with open(event.src_path, 'r') as f:
+                message = f.read().strip()
+            log('C')
 
-                response = chat.send_message(message)
-                with open(self.conv, 'a') as f:
-                    f.write('\n' + json.dumps({
-                        'role': 'user',
-                        'parts': [message],
-                    }) + ',')
-                    f.write('\n' + json.dumps({
-                        'role': 'model',
-                        'parts': [response.text.strip()],
-                    }) + ',')
-                text = response.text.strip()
-                # if self.markdown:
-                text = self.unmarkdown(text)
-                with open(self.output, 'w') as f:
-                    f.write(text)
+            if message == '__test_message__':
+                log("TEST Sending message.")
+                response = chat.send_message('Do you copy?')
+                log(f'response: \n {response.text}')
+                log(f'unmarkdown: {self.unmarkdown(response.text.strip())}')
+                log("TEST done.")
+                return
+            
+            log('D')
+            if event.src_path == self.input:
+                log('E')
+                self.handle_chat(message)
                 os.remove(self.input)
-            except Exception as e:
-                log(f"Exception while sending message: {e}")
-            log('Done sending message.')
+            else:
+                log('F')
+                self.handle_context(message)
+                os.remove(self.context)
+            
+        except Exception as e:
+            log(f"Exception while sending message: {e}")
+        log('Done sending message.')
 
 
 if __name__ == "__main__":
@@ -166,6 +199,7 @@ if __name__ == "__main__":
     event_handler = MessageHandler(
         f'{args.root}/tmp/{args.name}_question.txt',
         f'{args.root}/tmp/{args.name}_response.txt',
+        f'{args.root}/tmp/{args.name}_context.txt',
         f'{args.root}/conv/{args.conv}.conv',
         chat,
         not args.nomarkdown,

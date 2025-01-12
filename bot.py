@@ -37,7 +37,30 @@ def parse_args():
     )
     args = parser.parse_args()
     return args
-    
+ 
+
+def read_response(response):
+    try:
+        while not os.path.exists(response):
+            time.sleep(0.1)
+        with open(response, 'r') as f:
+            text = f.read().strip()
+    except KeyboardInterrupt:
+        text = "Keyboard Interruption"
+    return text
+
+
+def append_message(args, message):
+    name = args.name
+    question = f'{args.root}/tmp/{name}_context.txt'
+    response = f'{args.root}/tmp/{name}_response.txt'
+    if os.path.exists(response):
+        os.remove(response)
+    with open(question, 'w') as f:
+        f.write(message[7:])
+    text = read_response(response)
+    assert text == 'appended'
+
 
 def send_message(args, message):
     name = args.name
@@ -49,17 +72,7 @@ def send_message(args, message):
         f.write(message)
     if message == '__test_message__':
         return
-
-    try:
-        while not os.path.exists(response):
-            time.sleep(0.1)
-        with open(response, 'r') as f:
-            text = f.read()
-        # os.remove(response)
-        return text
-
-    except KeyboardInterrupt:
-        exit(1)
+    return read_response(response)
 
 
 if __name__ == '__main__':
@@ -76,7 +89,7 @@ if __name__ == '__main__':
 
     name = args.name
 
-    match args.message:
+    match args.message.strip():
         case 'activate':
             print('Activating... ', end='')
             if os.path.exists(f'{args.root}/tmp/{name}.pid'):
@@ -162,7 +175,8 @@ if __name__ == '__main__':
                     exit(1)
                 except Exception:
                     continue
-
+        case message if message.startswith('append'):
+            append_message(args, message)
         case message:
             print(send_message(args, message))
 
