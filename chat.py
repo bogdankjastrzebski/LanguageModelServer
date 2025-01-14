@@ -57,19 +57,34 @@ MD_MODEL = {
 
 
 class MessageHandler(FileSystemEventHandler):
-    def __init__(self, input, output, context, conv, chat, markdown):
+    def __init__(self,
+                 input,
+                 output,
+                 context,
+                 model,
+                 conv,
+                 chats,
+                 markdown):
         super().__init__()
+        log(f'a')
+        # Paths
         self.input = input
         self.output = output
         self.context = context
+        self.model = model
+        # 
+        log(f'b')
         self.conv = conv
-        self.chat = chat
+        self.chats = chats
+        self.chat = chats['2']
         self.markdown = markdown
+        log(f'c')
         if self.markdown:
             self.remember_about_markdown()
         log(f'input:  {input}')
         log(f'output: {output}')
         log(f'context: {context}')
+        log(f'model:   {model}')
         log(f'conv:   {conv}')
 
     def remember_about_markdown(self):
@@ -92,8 +107,19 @@ class MessageHandler(FileSystemEventHandler):
         text = text[:-3]
         return text
 
+    def handle_model(self, message):
+        if message in self.chats:
+            history = self.chat.history
+            self.chat.history = None
+            self.chat = self.chats[message]
+            self.chat.history = history
+        else:
+            log(f'No such chat. Tried to change to {message}.')
+        with open(self.output, 'w') as f:
+            f.write('changed_model')
+
     def handle_chat(self, message):
-        response = chat.send_message(message)
+        response = self.chat.send_message(message)
         with open(self.conv, 'a') as f:
             f.write('\n' + json.dumps({
                 'role': 'user',
@@ -131,7 +157,11 @@ class MessageHandler(FileSystemEventHandler):
         if not isinstance(event, FileModifiedEvent):
             return
         log('A')
-        if event.src_path not in [self.input, self.context]:
+        if event.src_path not in [
+                    self.input,
+                    self.context,
+                    self.model,
+                ]:
             return
         log('B')
 
@@ -143,21 +173,28 @@ class MessageHandler(FileSystemEventHandler):
 
             if message == '__test_message__':
                 log("TEST Sending message.")
-                response = chat.send_message('Do you copy?')
+                response = self.chat.send_message('Do you copy?')
                 log(f'response: \n {response.text}')
                 log(f'unmarkdown: {self.unmarkdown(response.text.strip())}')
                 log("TEST done.")
                 return
             
             log('D')
-            if event.src_path == self.input:
-                log('E')
-                self.handle_chat(message)
-                os.remove(self.input)
-            else:
-                log('F')
-                self.handle_context(message)
-                os.remove(self.context)
+            match event.src_path:
+                case self.input:
+                    log('E')
+                    self.handle_chat(message)
+                    os.remove(self.input)
+                case self.context:
+                    log('F')
+                    self.handle_context(message)
+                    os.remove(self.context)
+                case self.model:
+                    log('G')
+                    self.handle_model(message)
+                    # os.remove(self.model) # for reading
+                case unk:
+                    raise Exception(f"unexpected path: {unk}")
             
         except Exception as e:
             log(f"Exception while sending message: {e}")
@@ -188,11 +225,18 @@ if __name__ == "__main__":
     # Chat
     log('Creating chat. GEMINI 2.0')
     genai.configure(api_key=args.key)
-    model = genai.GenerativeModel(
-        # "gemini-1.5-flash",
-        "gemini-2.0-flash-exp",
-    )
-    chat = model.start_chat(history=history)
+    models = [
+        (n, genai.GenerativeModel(name))
+        for n, name in [
+            ('1.5', "gemini-1.5-flash"),
+            ('2', "gemini-2.0-flash-exp"),
+            ('pro', "gemini-exp-1206"),
+        ]
+    ]
+    chats = {
+        n: model.start_chat(history=history)
+        for (n, model) in models
+    }
     log('done.')
     
     log('Making handler.')
@@ -200,8 +244,9 @@ if __name__ == "__main__":
         f'{args.root}/tmp/{args.name}_question.txt',
         f'{args.root}/tmp/{args.name}_response.txt',
         f'{args.root}/tmp/{args.name}_context.txt',
+        f'{args.root}/tmp/{args.name}_model.type',
         f'{args.root}/conv/{args.conv}.conv',
-        chat,
+        chats,
         not args.nomarkdown,
     )
     log('done.')

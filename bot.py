@@ -9,6 +9,17 @@ import subprocess
 PYENV = '/home/bodo/.pyenv/versions/common/bin/python'
 PATH = '/home/bodo/.config/chatbot'
 
+HELP = """
+activate: activates chat
+deactivate: deactivates chat
+list: open list
+make-conversation: makes a new conversation
+test: ping server
+whoru: returns running model name
+repl: open repl
+model <name>: changes model to <name> 
+append <message>: appends <message> to context
+"""
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -48,6 +59,22 @@ def read_response(response):
     except KeyboardInterrupt:
         text = "Keyboard Interruption"
     return text
+
+
+def change_model(args, message):
+    model_name = message.split()[1]
+    if model_name not in ['1.5', '2', 'pro']:
+        print('Error: Model name should be in 1.5, 2 or pro.')
+        return
+    name = args.name
+    question = f'{args.root}/tmp/{name}_model.type'
+    response = f'{args.root}/tmp/{name}_response.txt'
+    if os.path.exists(response):
+        os.remove(response)
+    with open(question, 'w') as f:
+        f.write(model_name)
+    text = read_response(response)
+    assert text == 'changed_model'
 
 
 def append_message(args, message):
@@ -159,12 +186,13 @@ if __name__ == '__main__':
             print("begin 1. TEST")
             print(send_message(args, '__test_message__'))
             print("end 1. TEST")
-        case 'help':
-            print("""
-            make-conversation: 
-            list: open list
-            repl: open repl
-            """)
+        case 'whoru':
+            path = f'{args.root}/tmp/{name}_model.type'
+            if os.path.exists(path):
+                with open(path, 'r') as f:
+                    print(f.read())
+            else:
+                print('default (2)')
         case 'repl':
             while True:
                 try:
@@ -175,6 +203,10 @@ if __name__ == '__main__':
                     exit(1)
                 except Exception:
                     continue
+        case 'help':
+            print(HELP)
+        case message if message.startswith('model'):
+            change_model(args, message)
         case message if message.startswith('append'):
             append_message(args, message)
         case message:
