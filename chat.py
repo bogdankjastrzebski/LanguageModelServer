@@ -6,7 +6,6 @@ import google.generativeai as genai
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler, FileModifiedEvent
 
-
 PATH = '/home/bodo/.config/chatbot'
 LOG_FILE = []
 
@@ -230,7 +229,8 @@ if __name__ == "__main__":
         for n, name in [
             ('1.5', "gemini-1.5-flash"),
             ('2', "gemini-2.0-flash-exp"),
-            ('pro', "gemini-exp-1206"),
+            ('2.pro', "gemini-exp-1206"),
+            ('1.5.pro', "gemini-1.5-pro"),
         ]
     ]
     chats = {

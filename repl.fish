@@ -1,5 +1,18 @@
 #!/usr/bin/fish
 
+function loading_icon_unicode
+    # set -l frames "|/-\\" # Basic spinner
+    set -l frames "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏" # Braille spinner
+    # set -l frames "🌑🌒🌓🌔🌕🌖🌗🌘" # Moon phase spinner
+    while true
+        for i in (seq 1 (string length $frames))
+            set -l frame (string sub -s $i -l 1 $frames)
+            echo -n "$frame\r"
+            sleep 0.1
+        end
+    end
+end
+
 
 function chatbot-repl
     set chatbot $argv[1]
@@ -21,10 +34,13 @@ function chatbot-repl
                  echo -n '> '" input
         if test -z "$input"
             set input "$(sed '/^$/q')" # (read) (cat) 
-            set_color red
-            echo "response: "
-            set_color normal
         end
+        # set_color red
+        # echo -n "response"
+        set_color normal
+        # echo ": "
+        # set loading_pid \
+        #     (command loading_icon_unicode &; echo $last_pid)
         switch "$input"
             case "exit"
                 set_color yellow
@@ -40,11 +56,12 @@ function chatbot-repl
             case "*"
                 if not test -z "$input"
                     if test $mode = "shell"
-                        set output "$(eval $input)"
-                        echo -n "$output"
+                        # set out "$(eval $input 2>&1)"
+                        set out "$(eval $input 2>&1)"
+                        echo -n "$out"
                         $chatbot "append
                         shell> $input
-                        $output"
+                        $out"
                     else
                         $chatbot "$input"
                     end
@@ -59,4 +76,5 @@ function chatbot-repl
         #     wonszu "$input"
         # end
     end
+    # kill $loading_pid
 end

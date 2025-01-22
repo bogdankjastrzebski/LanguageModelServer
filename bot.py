@@ -1,10 +1,15 @@
 #!/home/bodo/.pyenv/versions/common/bin/python
 import os
-import sys
 import argparse 
 import time
 import signal
 import subprocess
+import requests
+from bs4 import BeautifulSoup
+from duckduckgo_search import DDGS
+from PyPDF2 import PdfReader
+from io import BytesIO
+
 
 PYENV = '/home/bodo/.pyenv/versions/common/bin/python'
 PATH = '/home/bodo/.config/chatbot'
@@ -20,6 +25,7 @@ repl: open repl
 model <name>: changes model to <name> 
 append <message>: appends <message> to context
 """
+
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -48,7 +54,51 @@ def parse_args():
     )
     args = parser.parse_args()
     return args
- 
+
+
+def extract_text_from_url(url, timeout=5):
+    try:
+        response = requests.get(url, timeout=timeout)
+        response.raise_for_status()
+        content_type = response.headers.get('Content-Type')
+        if 'html' in content_type:
+            soup = BeautifulSoup(response.content, 'html.parser')
+            text = ' '.join(soup.get_text(separator=' ', strip=True).split())
+        elif 'pdf' in content_type:
+            pdf_file = BytesIO(response.content)
+            pdf_reader = PdfReader(pdf_file)
+            text = ''
+            for page_num in range(len(pdf_reader.pages)):
+                page = pdf_reader.pages[page_num]
+                page_text = page.extract_text()
+                if page_text:
+                    text = text + page_text
+        return text
+    except requests.exceptions.RequestException as e:
+        print(f"Error fetching {url}: {e}")
+        return None
+    except Exception as e:
+        print(f"Error processing {url}: {e}")
+        return None
+
+
+def search(search_query, num_results=4, timeout=5):
+    result = DDGS().text(
+        keywords=search_query,
+        region='wt-wt',
+        safesearch='off',
+        timelimit='1m',
+        max_results=num_results,
+    )
+    rest = [extract_text_from_url(res['href'], timeout) for res in result]
+    return rest
+
+
+def search_web(args, message, limit=50000):
+    texts = search(message[7:])
+    for text in texts:
+        append_message(args, text[:limit])
+
 
 def read_response(response):
     try:
@@ -63,8 +113,8 @@ def read_response(response):
 
 def change_model(args, message):
     model_name = message.split()[1]
-    if model_name not in ['1.5', '2', 'pro']:
-        print('Error: Model name should be in 1.5, 2 or pro.')
+    if model_name not in ['1.5.pro', '1.5.pro', '2', '2.pro']:
+        print('Error: Model name should be in 1.5.pro, 2.pro, 1.5 or 2')
         return
     name = args.name
     question = f'{args.root}/tmp/{name}_model.type'
@@ -151,7 +201,6 @@ if __name__ == '__main__':
                 print(f'done. (pid: {pid})')
             else:
                 print('failed.')
-
         case 'deactivate':
             print('Deactivating... ', end='')
             if not os.path.exists(f'{args.root}/tmp/{name}.pid'):
@@ -165,7 +214,6 @@ if __name__ == '__main__':
                 pass
             os.remove(f'{args.root}/tmp/{name}.pid')
             print('done.')
-
         case 'list':
             print('NAME\tPID')
             for file in os.listdir(f'{args.root}/tmp'):
@@ -209,6 +257,8 @@ if __name__ == '__main__':
             change_model(args, message)
         case message if message.startswith('append'):
             append_message(args, message)
+        case message if message.startswith('search'):
+            search_web(args, message)
         case message:
             print(send_message(args, message))
 
