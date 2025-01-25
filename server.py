@@ -19,6 +19,12 @@ def parse_args():
     parser.add_argument('--root', type=str, help='input file')
     parser.add_argument('--conv', type=str, help='conversation')
     parser.add_argument(
+        '--port',
+        type=int,
+        default=65432,
+        help='port',
+    )
+    parser.add_argument(
         '--nomarkdown',
         action='store_false',
         default=True,
@@ -187,6 +193,8 @@ def handle_model():
 
 if __name__ == "__main__":
     args = parse_args()
+    
+    CONTEXT = Context(args)
 
     # Verbose:
     LOG_FILE.append(f'{PATH}/log/{args.name}_{args.conv}.log')
@@ -196,5 +204,5 @@ if __name__ == "__main__":
     app.run(
         debug=True,
         host='127.0.0.1',
-        port=65432,
+        port=args.port,
     )

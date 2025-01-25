@@ -1,7 +1,6 @@
 #!/home/bodo/.pyenv/versions/common/bin/python
 import os
 import argparse 
-import time
 import signal
 import subprocess
 import requests
@@ -121,7 +120,10 @@ def search(search_query, num_results=4, timeout=5):
         timelimit='1m',
         max_results=num_results,
     )
-    rest = [extract_text_from_url(res['href'], timeout) for res in result]
+    rest = [
+        extract_text_from_url(res['href'], timeout)
+        for res in result
+    ]
     return rest
 
 
@@ -129,8 +131,6 @@ def search_web(args, message, limit=50000):
     texts = search(message[7:])
     for text in texts:
         append_message(args, text[:limit])
-
-
 
 
 def send(args, endpoint, message):
@@ -141,22 +141,17 @@ def send(args, endpoint, message):
         json={'message': message},
         headers=headers,
     ) 
-    return response.json()
+    return response.json()  # ['message']
 
 
 def change_model(args, message):
-    two = message.split()
-    if len(two) != 2:
-        print('Error: Provide model name: 1.5.pro, 2.pro, 1.5 or 2')
-        return 
-    model_name = two[1]
-    if model_name not in ['1.5.pro', '1.5.pro', '2', '2.pro']:
-        print('Error: Model name should be '
-              'in 1.5.pro, 2.pro, 1.5 or 2.')
-        return
-    text = send(args, 'model', model_name)
-    print('change_model: text: ', text)
-    assert text == 'changed_model'
+    assert send(args, 'model', message.split()[1]) == 'changed_model'
+
+#     try:
+#         # assert model_name in ['1.5.pro', '1.5.pro', '2', '2.pro']
+#     except Exception as e:
+#         print('Error: Provide model name: 1.5.pro, 2.pro, 1.5 or 2')
+#         print(e)
 
 
 def print_history(args, message):
@@ -165,39 +160,23 @@ def print_history(args, message):
         history_length = twople[1]
     else:
         history_length = '5'
-    text = send(args, 'history', history_length)
-    return text
+    return send(args, 'history', history_length)
 
 
 def append_message(args, message):
-    text = send(args, 'context', message)
+    text = send(args, 'context', message.split()[1])
     assert text == 'appended'
 
 
 def send_message(args, message):
-    name = args.name
-    question = f'{args.root}/tmp/{name}_question.txt'
-    response = f'{args.root}/tmp/{name}_response.txt'
-    if os.path.exists(response):
-        os.remove(response)
-    with open(question, 'w') as f:
-        f.write(message)
-    if message == '__test_message__':
-        return
-    return read_response(response)
+    return send(args, 'context', message)
 
 
 if __name__ == '__main__':
     args = parse_args()
-    
+
     assert args.name != '', 'Enter name.'
     assert args.conversation != '', 'Enter conversation file.'
-    # if len(args.message) > 0:
-    #     message = ' '.join(args.message)
-    # else:
-    #     message = sys.stdin.read().strip()
-    # if len(args.message) == 0:
-    #     message = sys.stdin.read().strip()
 
     name = args.name
 
@@ -209,17 +188,12 @@ if __name__ == '__main__':
                 exit(1)
             with open(f'{args.root}/{args.key}', 'r') as f:
                 key = f.read()
-
-            # if len(args.name) < 3:
-            #     raise Exception(
-            #         f"The name should be at least 3 characters: {args.name}"
-            #     )
-
             command = f"""{PYENV} {args.root}/chat.py
                 --name={name}
                 --key={key}
                 --root={args.root}
                 --conv={args.conversation}
+                --port={args.port}
             """.split()
             if args.nomarkdown:
                 command.append('--nomarkdown')
