@@ -1,5 +1,15 @@
 # README
 
+
+## Version 2: With Socket
+
+Todo:
+- [ ] do resesarch
+- [ ] write socket architecture on raw sockets. no fancy stuff.
+    - [ ] just post the same functions as already written
+
+
+
 This is an unofficial implementation of Gemini for command line.
 
 ## Installation
