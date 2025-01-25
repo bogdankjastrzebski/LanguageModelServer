@@ -23,6 +23,7 @@ test: ping server
 whoru: returns running model name
 repl: open repl
 model <name>: changes model to <name> 
+search <query>: appends results from the internet to context
 append <message>: appends <message> to context
 """
 
@@ -112,7 +113,11 @@ def read_response(response):
 
 
 def change_model(args, message):
-    model_name = message.split()[1]
+    two = message.split()
+    if len(two) != 2:
+        print('Error: Provide model name: 1.5.pro, 2.pro, 1.5 or 2')
+        return 
+    model_name = two[1]
     if model_name not in ['1.5.pro', '1.5.pro', '2', '2.pro']:
         print('Error: Model name should be in 1.5.pro, 2.pro, 1.5 or 2')
         return
@@ -125,6 +130,23 @@ def change_model(args, message):
         f.write(model_name)
     text = read_response(response)
     assert text == 'changed_model'
+
+
+def print_history(args, message):
+    twople = message.split()
+    if len(twople) == 2:
+        history_length = twople[1]
+    else:
+        history_length = '5'
+    name = args.name
+    question = f'{args.root}/tmp/{name}_history.int'
+    response = f'{args.root}/tmp/{name}_response.txt'
+    if os.path.exists(response):
+        os.remove(response)
+    with open(question, 'w') as f:
+        f.write(history_length)
+    text = read_response(response)
+    return text
 
 
 def append_message(args, message):
@@ -259,6 +281,8 @@ if __name__ == '__main__':
             append_message(args, message)
         case message if message.startswith('search'):
             search_web(args, message)
+        case message if message.startswith('history'):
+            print(print_history(args, message))
         case message:
             print(send_message(args, message))
 

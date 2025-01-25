@@ -6,6 +6,7 @@ import google.generativeai as genai
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler, FileModifiedEvent
 
+
 PATH = '/home/bodo/.config/chatbot'
 LOG_FILE = []
 
@@ -13,7 +14,7 @@ LOG_FILE = []
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--name', type=str, help='profile')
-    parser.add_argument('--key', type=str, help='key')
+    parser.add_argument('--key',  type=str, help='key')
     parser.add_argument('--root', type=str, help='input file')
     parser.add_argument('--conv', type=str, help='conversation')
     parser.add_argument(
@@ -61,6 +62,7 @@ class MessageHandler(FileSystemEventHandler):
                  output,
                  context,
                  model,
+                 history,
                  conv,
                  chats,
                  markdown):
@@ -71,6 +73,7 @@ class MessageHandler(FileSystemEventHandler):
         self.output = output
         self.context = context
         self.model = model
+        self.history = history
         # 
         log(f'b')
         self.conv = conv
@@ -151,6 +154,21 @@ class MessageHandler(FileSystemEventHandler):
         with open(self.output, 'w') as f:
             f.write('appended')
 
+    def handle_history(self, message):
+        log('a')
+        try:
+            length = int(message.strip())
+        except:
+            length = 5
+        log('b')
+        log(f'length {type(length)} {length}')
+        with open(self.output, 'w') as f:
+            log('c')
+            # log(self.chat.history[-length:])
+            log('d')
+            f.write(str(self.chat.history[-length:]))
+            log('e')
+
     def on_modified(self, event):
         # log(f'Type event: {type(event)}')
         if not isinstance(event, FileModifiedEvent):
@@ -160,6 +178,7 @@ class MessageHandler(FileSystemEventHandler):
                     self.input,
                     self.context,
                     self.model,
+                    self.history,
                 ]:
             return
         log('B')
@@ -183,15 +202,19 @@ class MessageHandler(FileSystemEventHandler):
                 case self.input:
                     log('E')
                     self.handle_chat(message)
-                    os.remove(self.input)
+                    # os.remove(self.input)
                 case self.context:
                     log('F')
                     self.handle_context(message)
-                    os.remove(self.context)
+                    # os.remove(self.context)
                 case self.model:
                     log('G')
                     self.handle_model(message)
                     # os.remove(self.model) # for reading
+                case self.history:
+                    log('H')
+                    self.handle_history(message)
+                    # os.remove(self.history)
                 case unk:
                     raise Exception(f"unexpected path: {unk}")
             
@@ -245,6 +268,7 @@ if __name__ == "__main__":
         f'{args.root}/tmp/{args.name}_response.txt',
         f'{args.root}/tmp/{args.name}_context.txt',
         f'{args.root}/tmp/{args.name}_model.type',
+        f'{args.root}/tmp/{args.name}_history.int',
         f'{args.root}/conv/{args.conv}.conv',
         chats,
         not args.nomarkdown,
