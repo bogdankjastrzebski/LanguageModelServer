@@ -96,4 +96,6 @@ Here's a breakdown of the main directories in this project:
 ## TODO
 
 - [ ] make a list of available model types in arguments
+- [ ] rewrite to sockets
+    - [ ] figure out how to do that
 - [ ] rewrite in c?
