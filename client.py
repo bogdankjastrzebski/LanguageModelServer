@@ -14,6 +14,7 @@ from io import BytesIO
 PYENV = '/home/bodo/.pyenv/versions/common/bin/python'
 PATH = '/home/bodo/.config/chatbot'
 
+
 HELP = """
 activate: activates chat
 deactivate: deactivates chat
@@ -30,8 +31,19 @@ append <message>: appends <message> to context
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('message', nargs='?', default='', type=str, help='message')
-    parser.add_argument('--name', default='watcher', type=str, help='profile')
+    parser.add_argument(
+        'message',
+        nargs='?',
+        default='',
+        type=str,
+        help='message',
+    )
+    parser.add_argument(
+        '--name',
+        default='watcher',
+        type=str,
+        help='profile',
+    )
     parser.add_argument(
         '--key',
         default='gemini.key',
@@ -52,6 +64,24 @@ def parse_args():
         action='store_false',
         default=True,
         help="Disable markdown mode"
+    )
+    parser.add_argument(
+        '--nomarkdown',
+        action='store_false',
+        default=True,
+        help="Disable markdown mode"
+    )
+    parser.add_argument(
+        '--host',
+        default='127.0.0.1',
+        type=str,
+        help="Host."
+    )
+    parser.add_argument(
+        '--port',
+        default=65432,
+        type=int,
+        help="Port."
     )
     args = parser.parse_args()
     return args
@@ -101,15 +131,17 @@ def search_web(args, message, limit=50000):
         append_message(args, text[:limit])
 
 
-def read_response(response):
-    try:
-        while not os.path.exists(response):
-            time.sleep(0.1)
-        with open(response, 'r') as f:
-            text = f.read().strip()
-    except KeyboardInterrupt:
-        text = "Keyboard Interruption"
-    return text
+
+
+def send(args, endpoint, message):
+    url = f"http://{args.host}:{args.port}/{endpoint}"
+    headers = {'Content-type': 'application/json'}
+    response = requests.post(
+        url,
+        json={'message': message},
+        headers=headers,
+    ) 
+    return response.json()
 
 
 def change_model(args, message):
@@ -119,16 +151,11 @@ def change_model(args, message):
         return 
     model_name = two[1]
     if model_name not in ['1.5.pro', '1.5.pro', '2', '2.pro']:
-        print('Error: Model name should be in 1.5.pro, 2.pro, 1.5 or 2')
+        print('Error: Model name should be '
+              'in 1.5.pro, 2.pro, 1.5 or 2.')
         return
-    name = args.name
-    question = f'{args.root}/tmp/{name}_model.type'
-    response = f'{args.root}/tmp/{name}_response.txt'
-    if os.path.exists(response):
-        os.remove(response)
-    with open(question, 'w') as f:
-        f.write(model_name)
-    text = read_response(response)
+    text = send(args, 'model', model_name)
+    print('change_model: text: ', text)
     assert text == 'changed_model'
 
 
@@ -138,26 +165,12 @@ def print_history(args, message):
         history_length = twople[1]
     else:
         history_length = '5'
-    name = args.name
-    question = f'{args.root}/tmp/{name}_history.int'
-    response = f'{args.root}/tmp/{name}_response.txt'
-    if os.path.exists(response):
-        os.remove(response)
-    with open(question, 'w') as f:
-        f.write(history_length)
-    text = read_response(response)
+    text = send(args, 'history', history_length)
     return text
 
 
 def append_message(args, message):
-    name = args.name
-    question = f'{args.root}/tmp/{name}_context.txt'
-    response = f'{args.root}/tmp/{name}_response.txt'
-    if os.path.exists(response):
-        os.remove(response)
-    with open(question, 'w') as f:
-        f.write(message[7:])
-    text = read_response(response)
+    text = send(args, 'context', message)
     assert text == 'appended'
 
 
@@ -285,4 +298,5 @@ if __name__ == '__main__':
             print(print_history(args, message))
         case message:
             print(send_message(args, message))
+
 

@@ -3,10 +3,11 @@ import os
 import json
 import argparse 
 import google.generativeai as genai
-from watchdog.observers import Observer
-from watchdog.events import FileSystemEventHandler, FileModifiedEvent
+
+from flask import Flask, request, jsonify
 
 
+app = Flask(__name__)
 PATH = '/home/bodo/.config/chatbot'
 LOG_FILE = []
 
@@ -37,62 +38,41 @@ def log(message):
         f.write(message + '\n')
 
 
-MD_USER = {
-    'role': 'user',
-    'parts': [
-        'reply from now on markdown style, '
-        'beginning with ```markdown and ending with ```. '
-    ],
-}
-
-# 'remember also to put \\ before each single quote \''
-
-MD_MODEL = {
-    'role': 'model',
-    'parts': [
-        "\n```markdown\nUnderstood, I'll write"
-        "my responses everything markdown style\n```\n"
-    ]
-}
-
-
-class MessageHandler(FileSystemEventHandler):
-    def __init__(self,
-                 input,
-                 output,
-                 context,
-                 model,
-                 history,
-                 conv,
-                 chats,
-                 markdown):
-        super().__init__()
-        log(f'a')
-        # Paths
-        self.input = input
-        self.output = output
-        self.context = context
-        self.model = model
-        self.history = history
-        # 
-        log(f'b')
-        self.conv = conv
-        self.chats = chats
-        self.chat = chats['2']
-        self.markdown = markdown
-        log(f'c')
+class Context:
+    def __init__(self, args):
+        self.markdown = not args.markdown
+        self.conv = f'{args.root}/conv/{args.conv}.conv',
+        genai.configure(api_key=args.key)
+        self.chats = {
+            n: (genai.GenerativeModel(name)
+                .start_chat(history=self.load_history()))
+            for n, name in [
+                ('1.5', "gemini-1.5-flash"),
+                ('2', "gemini-2.0-flash-exp"),
+                ('2.pro', "gemini-exp-1206"),
+                ('1.5.pro', "gemini-1.5-pro"),
+            ]
+        }
+        self.chat = self.chats['2']
         if self.markdown:
             self.remember_about_markdown()
-        log(f'input:  {input}')
-        log(f'output: {output}')
-        log(f'context: {context}')
-        log(f'model:   {model}')
-        log(f'conv:   {conv}')
 
     def remember_about_markdown(self):
         log('Adding markdown instructions.')
-        self.chat.history.append(MD_USER)
-        self.chat.history.append(MD_MODEL)
+        self.chat.history.append({
+            'role': 'user',
+            'parts': [
+                'reply from now on markdown style, '
+                'beginning with ```markdown and ending with ```. '
+            ],
+        })
+        self.chat.history.append({
+            'role': 'model',
+            'parts': [
+                "\n```markdown\nUnderstood, I'll write"
+                "my responses everything markdown style\n```\n"
+            ]
+        })
         log('done.')
 
     def unmarkdown(self, text):
@@ -109,6 +89,60 @@ class MessageHandler(FileSystemEventHandler):
         text = text[:-3]
         return text
 
+    def save_conversation(self, user_message, model_message):
+        with open(self.conv, 'a') as f:
+            f.write('\n' + json.dumps(user_message) + ',')
+            f.write('\n' + json.dumps(model_message) + ',')
+
+    def load_history(self):
+        log('Loading history.')
+        if not os.path.exists(self.conv):
+            with open(self.conv, 'a') as f:
+                os.utime(self.conv, None)
+        with open(self.conv, 'r') as f:
+            history = f.read()
+            if len(history) > 0 and history[-1] == ',':
+                history = history[:-1]
+            self.history = json.loads('[' + history + ']')
+        log('done.')
+
+    def handle_chat(self, message):
+        response = self.chat.send_message(message).text.strip()
+        with open(self.conv, 'a') as f:
+            f.write('\n' + json.dumps({
+                'role': 'user',
+                'parts': [message],
+            }) + ',')
+            f.write('\n' + json.dumps({
+                'role': 'model',
+                'parts': [response],
+            }) + ',')
+        return self.unmarkdown(response)
+
+    def handle_history(self, message):
+        try:
+            length = int(message.strip())
+        except:
+            length = 5
+        return jsonify(self.chat.history[-length:])
+    
+    def handle_context(self, message):
+        user_message = {
+            'role': 'user',
+            'parts': [message],
+        }
+        model_message = {
+            'role': 'model',
+            'parts': [
+                'Noted terminal output,'
+                'awaiting instructions.'
+            ],
+        }
+        self.chat.history.append(user_message)
+        self.chat.history.append(model_message)
+        self.save_conversation(user_message, model_message)
+        return 'appended'
+    
     def handle_model(self, message):
         if message in self.chats:
             history = self.chat.history
@@ -117,110 +151,38 @@ class MessageHandler(FileSystemEventHandler):
             self.chat.history = history
         else:
             log(f'No such chat. Tried to change to {message}.')
-        with open(self.output, 'w') as f:
-            f.write('changed_model')
+        return 'changed_model'
 
-    def handle_chat(self, message):
-        response = self.chat.send_message(message)
-        with open(self.conv, 'a') as f:
-            f.write('\n' + json.dumps({
-                'role': 'user',
-                'parts': [message],
-            }) + ',')
-            f.write('\n' + json.dumps({
-                'role': 'model',
-                'parts': [response.text.strip()],
-            }) + ',')
-        text = response.text.strip()
-        # if self.markdown:
-        text = self.unmarkdown(text)
-        with open(self.output, 'w') as f:
-            f.write(text)
 
-    def handle_context(self, message):
-        user_message = {
-            'role': 'user',
-            'parts': [message],
-        }
-        model_message = {
-            'role': 'model',
-            'parts': ['Noted terminal output, awaiting instructions.'],
-        }
-        self.chat.history.append(user_message)
-        self.chat.history.append(model_message)
-        with open(self.conv, 'a') as f:
-            f.write('\n' + json.dumps(user_message) + ',')
-            f.write('\n' + json.dumps(model_message) + ',')
-        with open(self.output, 'w') as f:
-            f.write('appended')
+CONTEXT = None
 
-    def handle_history(self, message):
-        log('a')
-        try:
-            length = int(message.strip())
-        except:
-            length = 5
-        log('b')
-        log(f'length {type(length)} {length}')
-        with open(self.output, 'w') as f:
-            log('c')
-            # log(self.chat.history[-length:])
-            log('d')
-            f.write(str(self.chat.history[-length:]))
-            log('e')
 
-    def on_modified(self, event):
-        # log(f'Type event: {type(event)}')
-        if not isinstance(event, FileModifiedEvent):
-            return
-        log('A')
-        if event.src_path not in [
-                    self.input,
-                    self.context,
-                    self.model,
-                    self.history,
-                ]:
-            return
-        log('B')
+def process_message(func):
+    data = request.get_json()
+    if not data or "message" not in data:
+        return jsonify({"error": "Invalid data format"}), 400
+    message = data["message"]
+    return jsonify(response=func(message))
 
-        log(f"Sending message activated: {event.src_path}")
-        try:
-            with open(event.src_path, 'r') as f:
-                message = f.read().strip()
-            log('C')
 
-            if message == '__test_message__':
-                log("TEST Sending message.")
-                response = self.chat.send_message('Do you copy?')
-                log(f'response: \n {response.text}')
-                log(f'unmarkdown: {self.unmarkdown(response.text.strip())}')
-                log("TEST done.")
-                return
-            
-            log('D')
-            match event.src_path:
-                case self.input:
-                    log('E')
-                    self.handle_chat(message)
-                    # os.remove(self.input)
-                case self.context:
-                    log('F')
-                    self.handle_context(message)
-                    # os.remove(self.context)
-                case self.model:
-                    log('G')
-                    self.handle_model(message)
-                    # os.remove(self.model) # for reading
-                case self.history:
-                    log('H')
-                    self.handle_history(message)
-                    # os.remove(self.history)
-                case unk:
-                    raise Exception(f"unexpected path: {unk}")
-            
-        except Exception as e:
-            log(f"Exception while sending message: {e}")
-        log('Done sending message.')
+@app.route('/chat', methods=['POST'])
+def handle_chat():
+    return process_message(CONTEXT.handle_chat)
+
+
+@app.route('/history', methods=['POST'])
+def handle_history():
+    return process_message(CONTEXT.handle_history)
+
+
+@app.route('/context', methods=['POST'])
+def handle_context():
+    return process_message(CONTEXT.handle_history)
+
+
+@app.route('/model', methods=['POST'])
+def handle_model():
+    return process_message(CONTEXT.handle_model)
 
 
 if __name__ == "__main__":
@@ -230,67 +192,9 @@ if __name__ == "__main__":
     LOG_FILE.append(f'{PATH}/log/{args.name}_{args.conv}.log')
     reset_log()
     log(f'Activating chat: {args}')
-
-    # History
-    log('Loading history.')
-    conv_path = f'{args.root}/conv/{args.conv}.conv'
-    if not os.path.exists(conv_path):
-        with open(conv_path, 'a') as f:
-            os.utime(conv_path, None)
-    with open(conv_path, 'r') as f:
-        history = f.read()
-        if len(history) > 0 and history[-1] == ',':
-            history = history[:-1]
-        history = json.loads('[' + history + ']')
-    log('done.')
-          
-    # Chat
-    log('Creating chat. GEMINI 2.0')
-    genai.configure(api_key=args.key)
-    models = [
-        (n, genai.GenerativeModel(name))
-        for n, name in [
-            ('1.5', "gemini-1.5-flash"),
-            ('2', "gemini-2.0-flash-exp"),
-            ('2.pro', "gemini-exp-1206"),
-            ('1.5.pro', "gemini-1.5-pro"),
-        ]
-    ]
-    chats = {
-        n: model.start_chat(history=history)
-        for (n, model) in models
-    }
-    log('done.')
     
-    log('Making handler.')
-    event_handler = MessageHandler(
-        f'{args.root}/tmp/{args.name}_question.txt',
-        f'{args.root}/tmp/{args.name}_response.txt',
-        f'{args.root}/tmp/{args.name}_context.txt',
-        f'{args.root}/tmp/{args.name}_model.type',
-        f'{args.root}/tmp/{args.name}_history.int',
-        f'{args.root}/conv/{args.conv}.conv',
-        chats,
-        not args.nomarkdown,
+    app.run(
+        debug=True,
+        host='127.0.0.1',
+        port=65432,
     )
-    log('done.')
-    
-    log('Making observer.')
-    observer = Observer()
-    observer.schedule(
-        event_handler,
-        path=f'{args.root}/tmp',
-        recursive=False,
-    )
-    log('done.')
-    
-    log('Starting observer.')
-    observer.start()
-    log('done.')
-    log('Observer join.')
-    try:
-        observer.join()
-    except KeyboardInterrupt:
-        observer.stop()
-    observer.join()
-    log('done.')
