@@ -3,21 +3,36 @@ import os
 import json
 import argparse 
 import google.generativeai as genai
-
 from flask import Flask, request, jsonify
+import logging
+
+
+# PATH = '/home/bodo/.config/chatbot'
+# LOG_FILE = []
+# def reset_log():
+#     with open(LOG_FILE[0], 'w') as f:
+#         f.write('start')
+# 
+# 
+# def log(message):
+#     with open(LOG_FILE[0], 'a') as f:
+#         f.write(message + '\n')
 
 
 app = Flask(__name__)
-PATH = '/home/bodo/.config/chatbot'
-LOG_FILE = []
 
 
+# parser.add_argument('--name', type=str, help='profile')
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--name', type=str, help='profile')
-    parser.add_argument('--key',  type=str, help='key')
+    parser.add_argument('--key', type=str, help='key')
     parser.add_argument('--root', type=str, help='input file')
-    parser.add_argument('--conv', type=str, help='conversation')
+    parser.add_argument(
+        '--conv',
+        default='default',
+        type=str,
+        help='conversation',
+    )
     parser.add_argument(
         '--port',
         type=int,
@@ -34,20 +49,10 @@ def parse_args():
     return args
 
 
-def reset_log():
-    with open(LOG_FILE[0], 'w') as f:
-        f.write('start')
-
-
-def log(message):
-    with open(LOG_FILE[0], 'a') as f:
-        f.write(message + '\n')
-
-
 class Context:
     def __init__(self, args):
-        self.markdown = not args.markdown
-        self.conv = f'{args.root}/conv/{args.conv}.conv',
+        self.markdown = not args.nomarkdown
+        self.conv = f'{args.root}/conv/{args.conv}.conv'
         genai.configure(api_key=args.key)
         self.chats = {
             n: (genai.GenerativeModel(name)
@@ -64,7 +69,7 @@ class Context:
             self.remember_about_markdown()
 
     def remember_about_markdown(self):
-        log('Adding markdown instructions.')
+        logging.info('Adding markdown instructions.')
         self.chat.history.append({
             'role': 'user',
             'parts': [
@@ -79,7 +84,7 @@ class Context:
                 "my responses everything markdown style\n```\n"
             ]
         })
-        log('done.')
+        logging.info('done.')
 
     def unmarkdown(self, text):
         # log(f"text: {text}")
@@ -88,7 +93,7 @@ class Context:
         lhs = text[:11] != '```markdown'
         rhs = text[-3:] != '```'
         if lhs or rhs:
-            log('No markdown detected.')
+            logging.warning('No markdown detected.')
             self.remember_about_markdown()
             return text
         text = text[11:]
@@ -101,8 +106,9 @@ class Context:
             f.write('\n' + json.dumps(model_message) + ',')
 
     def load_history(self):
-        log('Loading history.')
+        logging.info('Loading history.')
         if not os.path.exists(self.conv):
+            logging.info('Creating history file.')
             with open(self.conv, 'a') as f:
                 os.utime(self.conv, None)
         with open(self.conv, 'r') as f:
@@ -110,7 +116,7 @@ class Context:
             if len(history) > 0 and history[-1] == ',':
                 history = history[:-1]
             self.history = json.loads('[' + history + ']')
-        log('done.')
+        logging.info('Done loading history.')
 
     def handle_chat(self, message):
         response = self.chat.send_message(message).text.strip()
@@ -156,7 +162,9 @@ class Context:
             self.chat = self.chats[message]
             self.chat.history = history
         else:
-            log(f'No such chat. Tried to change to {message}.')
+            logging.error(
+                f'No such chat. Tried to change to {message}.'
+            )
         return 'changed_model'
 
 
@@ -193,14 +201,28 @@ def handle_model():
 
 if __name__ == "__main__":
     args = parse_args()
-    
+
+    if args.key is None:
+        if os.path.exists('gemini.key'):
+            with open('gemini.key', 'r') as f:
+                args.key = f.read()
+        else:
+            raise Exception('No key detected!')
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s'
+               ' - %(name)s - %(message)s'
+    )
+
+    logging.info(
+        f'Activating chat: root={args.root} conv={args.conv} '
+        f'port={args.port} markdown={not args.nomarkdown}')
+
+    logging.info('Creating context.')
     CONTEXT = Context(args)
 
-    # Verbose:
-    LOG_FILE.append(f'{PATH}/log/{args.name}_{args.conv}.log')
-    reset_log()
-    log(f'Activating chat: {args}')
-    
+    logging.info('Running server.')
     app.run(
         debug=True,
         host='127.0.0.1',

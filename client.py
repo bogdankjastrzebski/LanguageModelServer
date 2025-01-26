@@ -65,12 +65,6 @@ def parse_args():
         help="Disable markdown mode"
     )
     parser.add_argument(
-        '--nomarkdown',
-        action='store_false',
-        default=True,
-        help="Disable markdown mode"
-    )
-    parser.add_argument(
         '--host',
         default='127.0.0.1',
         type=str,
