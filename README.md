@@ -25,22 +25,24 @@ source $CHATBOT_PATH/repl.sh
 Combine with `glow` to make a colorful REPL:
 
 ```fish
-function wonszu
-    bot "$argv[1]"   \
-        --name=wonsz \
-        --conversation=default | glow -w 60
+function bot
+    $root/client.py "$argv[1]" --port=65432 | glow -w 60
 end
 
-function wonszu-repl
-    repl-wrapper wonszu
+function bot-repl
+    bott-repl bot
+end
+
+function bot-server
+    bott-server --root="$root"
 end
 ```
 
 
 Basic usage:
 ```bash
-~/.c/chatbot on main ⨯ wonszu-repl
-read> let's write then something in scheme! like memoization, how to do it only on simple structs without libraries?
+~/.c/chatbot on main ⨯ bot-repl
+gemini> let's write then something in scheme! like memoization, how to do it only on simple structs without libraries?
 ```
 
 ```scheme

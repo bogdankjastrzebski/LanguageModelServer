@@ -1,5 +1,21 @@
+#!/usr/bin/fish
 
-function bott-repl
+function loading_icon_unicode
+    # set -l frames "|/-\\" # Basic spinner
+    set -l frames "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏" # Braille spinner
+    # set -l frames "🌑🌒🌓🌔🌕🌖🌗🌘" # Moon phase spinner
+    while true
+        for i in (seq 1 (string length $frames))
+            set -l frame (string sub -s $i -l 1 $frames)
+            echo -n "$frame\r"
+            sleep 0.1
+        end
+    end
+end
+
+
+
+function chatbot-repl
     set chatbot $argv[1]
     set mode "gemini"
     while true
@@ -52,5 +68,14 @@ function bott-repl
                     end
                 end
         end
+        # if string match -q "exit" "$input"
+        #     echo "Exiting REPL..."
+        #     break
+        # else if string match -q "clear" "$input"
+        #     clear
+        # else if not test -z "$input"
+        #     wonszu "$input"
+        # end
     end
+    # kill $loading_pid
 end
