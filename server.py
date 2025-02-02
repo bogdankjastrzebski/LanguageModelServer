@@ -7,22 +7,9 @@ from flask import Flask, request, jsonify
 import logging
 
 
-# PATH = '/home/bodo/.config/chatbot'
-# LOG_FILE = []
-# def reset_log():
-#     with open(LOG_FILE[0], 'w') as f:
-#         f.write('start')
-# 
-# 
-# def log(message):
-#     with open(LOG_FILE[0], 'a') as f:
-#         f.write(message + '\n')
-
-
 app = Flask(__name__)
 
 
-# parser.add_argument('--name', type=str, help='profile')
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--key', type=str, help='key')
@@ -65,6 +52,7 @@ class Context:
             ]
         }
         self.chat = self.chats['2']
+        self.chat_name = '2'
         if self.markdown:
             self.remember_about_markdown()
 
@@ -119,6 +107,7 @@ class Context:
         logging.info('Done loading history.')
 
     def handle_chat(self, message):
+        logging.info(f'Sending message: {message}')
         response = self.chat.send_message(message).text.strip()
         with open(self.conv, 'a') as f:
             f.write('\n' + json.dumps({
@@ -136,7 +125,7 @@ class Context:
             length = int(message.strip())
         except:
             length = 5
-        return jsonify(self.chat.history[-length:])
+        return self.chat.history[-length:]
     
     def handle_context(self, message):
         user_message = {
@@ -155,57 +144,68 @@ class Context:
         self.save_conversation(user_message, model_message)
         return 'appended'
     
-    def handle_model(self, message):
+    def handle_model_post(self, message):
         if message in self.chats:
             history = self.chat.history
             self.chat.history = None
             self.chat = self.chats[message]
             self.chat.history = history
+            self.chat_name = message
         else:
             logging.error(
                 f'No such chat. Tried to change to {message}.'
             )
         return 'changed_model'
 
+    def handle_model_get(self):
+        return self.chat_name
+
 
 CONTEXT = None
 
 
 def process_message(func):
+    logging.info('Processing message.')
     data = request.get_json()
     if not data or "message" not in data:
         return jsonify({"error": "Invalid data format"}), 400
     message = data["message"]
-    return jsonify(response=func(message))
+    logging.info(f'message: {message}')
+    return func(message)
 
 
 @app.route('/chat', methods=['POST'])
 def handle_chat():
-    return process_message(CONTEXT.handle_chat)
+    return jsonify(response=process_message(CONTEXT.handle_chat))
 
 
 @app.route('/history', methods=['POST'])
 def handle_history():
-    return process_message(CONTEXT.handle_history)
+    return jsonify(response=process_message(CONTEXT.handle_history))
 
 
 @app.route('/context', methods=['POST'])
 def handle_context():
-    return process_message(CONTEXT.handle_history)
+    return jsonify(response=process_message(CONTEXT.handle_context))
 
 
 @app.route('/model', methods=['POST'])
-def handle_model():
-    return process_message(CONTEXT.handle_model)
+def handle_model_post():
+    return jsonify(response=process_message(CONTEXT.handle_model_post))
+
+
+@app.route('/model', methods=['GET'])
+def handle_model_get():
+    return jsonify(response=CONTEXT.handle_model_get())
 
 
 if __name__ == "__main__":
     args = parse_args()
 
     if args.key is None:
-        if os.path.exists('gemini.key'):
-            with open('gemini.key', 'r') as f:
-                args.key = f.read()
+        if os.path.exists(f'{args.root}/gemini.key'):
+            with open(f'{args.root}/gemini.key', 'r') as f:
+                args.key = f.read().strip()
         else:
             raise Exception('No key detected!')
 
