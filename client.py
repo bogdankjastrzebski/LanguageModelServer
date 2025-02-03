@@ -118,26 +118,32 @@ def search_web(args, message, limit=50000):
     texts = search(message[7:])
     ret = []
     for text in texts:
-        ret.append(append_message(args, text[:limit]))
+        try:
+            ret.append(send(args, 'context', text[:limit]))
+        except:
+            ret.append('not_appended')
     return ', '.join(ret)
 
 
 def send(args, endpoint, message, method='post'):
-    url = f"http://{args.host}:{args.port}/{endpoint}"
-    headers = {'Content-type': 'application/json'}
-    if method == 'post':
-        response = requests.post(
-            url,
-            json={'message': message},
-            headers=headers,
-        ) 
-    else:
-        response = requests.get(
-            url,
-            params={'message': message}
-        )
-    ret = response.json()
-    return ret['response']
+    try:
+        url = f"http://{args.host}:{args.port}/{endpoint}"
+        headers = {'Content-type': 'application/json'}
+        if method == 'post':
+            response = requests.post(
+                url,
+                json={'message': message},
+                headers=headers,
+            ) 
+        else:
+            response = requests.get(
+                url,
+                params={'message': message}
+            )
+        ret = response.json()
+        return ret['response']
+    except KeyboardInterrupt:
+        return "Interrupted"
 
 
 def change_model(args, message):
@@ -158,8 +164,7 @@ def print_history(args, message):
 
 
 def append_message(args, message):
-    text = send(args, 'context', message.split()[1])
-    return text
+    return send(args, 'context', message[7:])
 
 
 def send_message(args, message):
@@ -172,31 +177,6 @@ if __name__ == '__main__':
     assert args.conv != '', 'Enter conversation file.'
 
     match args.message.strip():
-        case 'activate':
-            print('Activating... ', end='')
-            # if check if port is active TODO:
-            #    print('already active.')
-            #    exit(1)
-            with open(f'{args.root}/{args.key}', 'r') as f:
-                key = f.read()
-            command = f"""{PYENV} {args.root}/server.py
-                --key={key}
-                --root={args.root}
-                --conv={args.conversation}
-                --port={args.port}
-            """.split()
-            if args.nomarkdown:
-                command.append('--nomarkdown')
-            process = subprocess.Popen(
-                command,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                env=None,
-            )
-            
-        case 'deactivate':
-            # TODO
-            pass
         case 'list':
             print('NAME\tPID')
             for file in os.listdir(f'{args.root}/tmp'):
