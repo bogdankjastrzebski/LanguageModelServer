@@ -18,7 +18,7 @@ function bott-repl
                  set_color normal;
                  echo -n '> '" input
         if test -z "$input"
-            set input "$(sed '/^$/q')" # (read) (cat) 
+            set input "$(get_command)" # (cat) # "$(sed '/^$/q')" # (read)
         end
         # set_color red
         # echo -n "response"
