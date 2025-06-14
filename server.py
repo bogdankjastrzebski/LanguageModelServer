@@ -13,7 +13,13 @@ app = Flask(__name__)
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--key', type=str, help='key')
-    parser.add_argument('--root', type=str, help='input file')
+    parser.add_argument('--root', type=str, help='root of config')
+    parser.add_argument(
+        '--prompt',
+        default="prompt.prompt",
+        type=str,
+        help='prompt file',
+    )
     parser.add_argument(
         '--conv',
         default='default',
@@ -26,19 +32,12 @@ def parse_args():
         default=65432,
         help='port',
     )
-    parser.add_argument(
-        '--nomarkdown',
-        action='store_false',
-        default=True,
-        help="Disable markdown mode."
-    )
     args = parser.parse_args()
     return args
 
 
 class Context:
     def __init__(self, args):
-        self.markdown = not args.nomarkdown
         self.conv = f'{args.root}/conv/{args.conv}.conv'
         genai.configure(api_key=args.key)
         self.chats = {
@@ -53,28 +52,30 @@ class Context:
                 ('2.5.flash', 'gemini-2.5-flash-preview-05-20'),
             ]
         }
-        self.chat = self.chats['2']
-        self.chat_name = '2'
-        if self.markdown:
-            self.remember_about_markdown()
+        self.chat = self.chats['2.5.flash']
+        self.chat_name = '2.5.flash'
+        with open(f'{args.root}/prompts/{args.prompt}', 'r') as f:
+            self.prompt = f.read()
+        self.remember_about_prompt()
 
-    def remember_about_markdown(self):
-        logging.info('Adding markdown instructions.')
+    def remember_about_prompt(self):
+        logging.info('Adding prompt instructions.')
         self.chat.history.append({
             'role': 'user',
-            'parts': [
-                'reply from now on markdown style, '
-                'beginning with ```markdown and ending with ```. '
-            ],
+            'parts': [self.prompt],
         })
         self.chat.history.append({
             'role': 'model',
             'parts': [
                 "\n```markdown\nUnderstood, I'll write"
-                "my responses everything markdown style\n```\n"
+                "my responses as requested\n```\n"
             ]
         })
         logging.info('done.')
+
+    def handle_remember(self):
+        self.remember_about_prompt()
+        return 'ok'
 
     def unmarkdown(self, text):
         # log(f"text: {text}")
@@ -201,6 +202,11 @@ def handle_model_get():
     return jsonify(response=CONTEXT.handle_model_get())
 
 
+@app.route('/remember', methods=['POST'])
+def handle_remember():
+    return jsonify(response=process_message(CONTEXT.handle_remember()))
+
+
 if __name__ == "__main__":
     args = parse_args()
 
@@ -219,7 +225,7 @@ if __name__ == "__main__":
 
     logging.info(
         f'Activating chat: root={args.root} conv={args.conv} '
-        f'port={args.port} markdown={not args.nomarkdown}')
+        f'port={args.port} prompt={args.prompt}')
 
     logging.info('Creating context.')
     CONTEXT = Context(args)
