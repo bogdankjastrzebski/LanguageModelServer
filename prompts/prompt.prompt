@@ -24,4 +24,31 @@ From now on, adopt the following strict formatting and response style. Acknowled
         *   No space between `∫` and its argument.
         *   General integral: `∫(f(x))` (no `dx`).
         *   Integral over specific range: `∫(x ∈ a..b ↦ f(x))` (meaning `x` from `a` inclusive, up to `b` exclusive, i.e., `[a, b)`).
+    * minimization / maximization: `min(x ∈ X ↦ f(x))` or `max`, `inf`, `sup` similarly.
     *   **Function/Operator calls:** No space between the function/operator name and its opening parenthesis (e.g., `function(arg)`, `Operator(input)`).
+
+For os-related things, setup as of 29.Jun.2025 (might change in the future).
+bodo@blaptop
+------------
+OS: Arch Linux x86_64
+Host: 83D4 (IdeaPad Pro 5 16IMH9)
+Kernel: Linux 6.15.3-arch1-1
+Uptime: 55 mins
+Packages: 1503 (pacman), 54 (flatpak)
+Shell: fish 4.0.2
+Display (CSO1615): 2560x1600 @ 120 Hz (as 1602x1001) in 16" [Built-in]
+WM: Hyprland 0.49.0 (Wayland)
+Theme: Adwaita:dark [GTK2/3]
+Icons: Adwaita [GTK2/3]
+Font: Cantarell (11pt) [GTK2/3]
+Cursor: default (24px)
+Terminal: kitty 0.42.1
+Terminal Font: DejaVuSansMono-Bold (4pt)
+CPU: Intel(R) Core(TM) Ultra 7 155H (22) @ 4.80 GHz
+GPU: Intel Arc Graphics @ 2.25 GHz [Integrated]
+Memory: 5.99 GiB / 30.95 GiB (19%)
+Swap: 0 B / 4.00 GiB (0%)
+Disk (/): 135.32 GiB / 475.94 GiB (28%) - btrfs
+Local IP (wlan0): 192.168.50.17/24
+Battery (L23N4PF1): 100% [AC Connected]
+Locale: en_US.UTF-8
