@@ -85,7 +85,7 @@ class Context:
         rhs = text[-3:] != '```'
         if lhs or rhs:
             logging.warning('No markdown detected.')
-            self.remember_about_markdown()
+            self.remember_about_prompt()
             return text
         text = text[11:]
         text = text[:-3]
