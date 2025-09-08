@@ -48,8 +48,8 @@ class Context:
                 ('2', "gemini-2.0-flash-exp"),
                 ('2.pro', "gemini-exp-1206"),
                 ('1.5.pro', "gemini-1.5-pro"),
-                ('2.5.pro', 'gemini-2.5-pro-preview-05-06'),
-                ('2.5.flash', 'gemini-2.5-flash-preview-05-20'),
+                ('2.5.pro', 'gemini-2.5-pro'),
+                ('2.5.flash', 'gemini-2.5-flash'),
             ]
         }
         self.chat = self.chats['2.5.flash']
