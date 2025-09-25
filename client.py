@@ -21,7 +21,7 @@ list: open list
 make-conversation: makes a new conversation
 test: ping server
 whoru: returns running model name
-model <name>: changes model to <name>, one of '2' '2.pro' '1.5' '1.5.pro'
+model <name>: changes model to <name>, one of '2' '2.pro' '1.5' '1.5.pro' '2.5.pro' '2.5.flash'
 search <query>: appends results from the internet to context
 append <message>: appends <message> to context
 """
